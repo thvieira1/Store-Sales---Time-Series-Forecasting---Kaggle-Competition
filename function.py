@@ -22,12 +22,15 @@ class DataProcessor:
         data = pd.merge(data, self.holidays, on=['date'], how='left')
         return data
 
+    def drop_duplicates_by_id(self, data):
+        return data.drop_duplicates(['id'])
 
     def date_process(self, data):
         data['date'] = pd.to_datetime(data['date'])
         data['date_month_year'] = data['date'].dt.strftime('%Y-%m')
         data['date_month_year'] = pd.to_datetime(data['date_month_year'])
 
+        data['date_day'] = data['date'].dt.day
         data['date_month'] = data['date'].dt.month
         data['date_year'] = data['date'].dt.year
 
@@ -36,13 +39,18 @@ class DataProcessor:
     def rename_columns(self, data, old_name, new_name):
         data.rename(columns={old_name: new_name}, inplace=True)
 
+    def modelling_treatment(self, data):
+        return data.loc[data['date'] < self.test['date'].min()]
+
 class FeatureEngineer:
 
     @staticmethod
     def add_last_week_flag(data):
-        data.loc[data['date'].dt.day >= (31-7), 'flag_last_week'] = 1
-        data['flag_last_week'] = data['flag_last_week'].fillna(0)
+        month_end = data['date'].dt.to_period('M').dt.to_timestamp('M')
+        data['flag_last_week'] = (month_end - data['date']).dt.days < 7
+        data['flag_last_week'] = data['flag_last_week'].astype('int8')
         return data
+
     
     @staticmethod
     def add_national_locale_flag(data):
@@ -62,10 +70,10 @@ class FeatureEngineer:
     
     @staticmethod
     def add_holiday_flag(data):
-        data['flag_holiday'] = data['holiday_type'].apply(lambda x: 1 if x in ['Holiday', 'Bridge', 'Event'] else 0)
+        data.loc[~data['holiday_type'].isnull(), 'flag_holiday'] = 1
         data['flag_holiday'] = data['flag_holiday'].fillna(0)
         return data
     
     def one_hot_encode_categorical(data, categorical_columns):
-        data = pd.get_dummies(data, columns=categorical_columns, drop_first=True)
+        data = pd.get_dummies(data, columns=categorical_columns, drop_first=True, dtype='int64')
         return data
