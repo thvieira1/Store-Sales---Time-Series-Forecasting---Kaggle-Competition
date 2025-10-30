@@ -1,5 +1,5 @@
 import pandas as pd 
-from function import DataProcessor, FeatureEngineer
+from function import DataProcessor, FeatureEngineer, DataCleanerAndPreparer, PreprearerToSubmit
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -21,14 +21,16 @@ df = FeatureEngineer.one_hot_encode_categorical(
     ['family', 'city', 'state', 'store_type', 'transferred']
 )
 
-df = data_processor.modelling_treatment(df)
+df, df_sub = data_processor.modelling_treatment(df)
+df_sub['id'] = df_sub.index
 
 
-
+df = DataCleanerAndPreparer.remove_outliers_iqr(df, 'sales')
 
 df_num = df.select_dtypes(include=np.number)
-
 df_num = df_num.dropna()
+
+
 
 
 
@@ -63,3 +65,23 @@ y_true = np.expm1(y_test)
 rmse = np.sqrt(mean_squared_error(y_true, y_pred))
 mae  = mean_absolute_error(y_true, y_pred)
 print(f'RMSE: {rmse:.2f}  |  MAE: {mae:.2f}')
+
+
+
+df_num_sub = df_sub.select_dtypes(include=np.number)
+
+X_sub = df_num_sub.drop(['id', 'sales'], axis = 1)
+
+y_pred_sub = model.predict(X_sub)
+
+
+def prepare_submission(predictions, test_data, filename='submission.csv'):
+    submission = pd.DataFrame({
+        'id': test_data['id'],
+        'sales': predictions
+    })
+    submission.to_csv(filename, index=False)
+
+
+preparer = PreprearerToSubmit()
+preparer.prepare_submission(y_pred_sub, df_sub, filename='submission.csv')

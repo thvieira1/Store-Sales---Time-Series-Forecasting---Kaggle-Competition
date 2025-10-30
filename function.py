@@ -40,7 +40,7 @@ class DataProcessor:
         data.rename(columns={old_name: new_name}, inplace=True)
 
     def modelling_treatment(self, data):
-        return data.loc[data['date'] < self.test['date'].min()]
+        return data.loc[data['date'] < self.test['date'].min()], data.loc[data['date'] >= self.test['date'].min()]
 
 class FeatureEngineer:
 
@@ -77,3 +77,37 @@ class FeatureEngineer:
     def one_hot_encode_categorical(data, categorical_columns):
         data = pd.get_dummies(data, columns=categorical_columns, drop_first=True, dtype='int64')
         return data
+    
+
+    def lag_features(data, target_col, lags):
+        for lag in lags:
+            data[f'{target_col}_lag_{lag}'] = data.groupby('store_nbr')[target_col].shift(lag)
+        return data
+
+    def rolling_mean_features(data, target_col, windows):
+        for window in windows:
+            roll_col_name = f"{target_col}_roll_mean_{window}"
+            data[roll_col_name] = data.groupby('store_nbr')[target_col].transform(lambda x: x.shift(1).rolling(window).mean())
+        return data
+
+class DataCleanerAndPreparer:
+
+    def remove_outliers_iqr(data, column_name):
+        Q1 = data[column_name].quantile(0.25)
+        Q3 = data[column_name].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        outliers = data[(data[column_name] < lower_bound) | (data[column_name] > upper_bound)]
+        cleaned_data = data.loc[~data['id'].isin(outliers['id'])]
+        return cleaned_data
+    
+class PreprearerToSubmit:
+
+    @staticmethod
+    def prepare_submission(predictions, test_data, filename='submission.csv'):
+        submission = pd.DataFrame({
+            'id': test_data['id'],
+            'sales': predictions
+        })
+        submission.to_csv(filename, index=False)
