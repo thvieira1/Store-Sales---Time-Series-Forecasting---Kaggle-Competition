@@ -79,15 +79,24 @@ class FeatureEngineer:
         return data
     
 
+    @staticmethod
     def lag_features(data, target_col, lags):
+        group_cols = ['store_nbr', 'family']
         for lag in lags:
-            data[f'{target_col}_lag_{lag}'] = data.groupby('store_nbr')[target_col].shift(lag)
+            data[f'{target_col}_lag_{lag}'] = (
+                data.groupby(group_cols)[target_col].shift(lag)
+            )
         return data
 
+    @staticmethod
     def rolling_mean_features(data, target_col, windows):
+        group_cols = ['store_nbr', 'family']
         for window in windows:
             roll_col_name = f"{target_col}_roll_mean_{window}"
-            data[roll_col_name] = data.groupby('store_nbr')[target_col].transform(lambda x: x.shift(1).rolling(window).mean())
+            data[roll_col_name] = (
+                data.groupby(group_cols)[target_col]
+                    .transform(lambda x: x.shift(1).rolling(window).mean())
+            )
         return data
 
 class DataCleanerAndPreparer:
